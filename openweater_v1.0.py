@@ -1,75 +1,68 @@
-import os
 import requests
-import json
-
-api_key = os.getenv("API_KEY")
-base_weather_url = os.getenv("BASE_WEATHER_URL")
-base_geocode_url = os.getenv("BASE_GEOCODE_URL")
-default_weather_params = f"&appid={api_key}&mode=json&units=imperial&lang=en"
-default_geocode_param = f"appid={api_key}"
+from dataclasses import dataclass
+import os
 
 
-# New method for OpenWeather is to use the Geocoding API instead of embedding the city, state and country in the main weather URL
-# location includs city name, state code (only for the US) and country code divided by comma. Please use ISO 3166 country codes.
+API_KEY = os.getenv("API_KEY")
+BASE_WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
+BASE_GEOCODE_URL = "http://api.openweathermap.org/geo/1.0/direct?q="
+DEFAULT_WEATHER_PARAMS = f"&appid={API_KEY}&mode=json&units=imperial&lang=en"
+DEFAULT_GEOCODE_PARAMS = f"appid={API_KEY}"
+
+
+@dataclass
+class GeoCode:
+    lat: float
+    lon: float
+    city: str
+    state: str | None
+    country: str | None
+
+
+def get_location() -> None:
+    city = input("City: ")
+    state_code = input("State Code, only applicable to the USA: ")
+    country_code = input("Country Code (2 letters): ")
+    return f"{city},{state_code},{country_code}"
+
+
 def get_geocode(location_payload):
-    # city_state_cc_payload = f"{city},{state_code},{country_code}"
-    geocode_url = f"{base_geocode_url}{location_payload}&{default_geocode_param}"
-    geocode_response = requests.get(geocode_url)  # JSON Array
-    geocode_data = json.loads(geocode_response.text)  # Python List
-    lat = geocode_data[0]["lat"]
-    lon = geocode_data[0]["lon"]
-    geo_country = geocode_data[0]["country"]
-    geo_state = geocode_data[0]["state"]
-    geo_city = geocode_data[0]["name"]
-    return (
+    geocode_url = f"{BASE_GEOCODE_URL}{location_payload}&{DEFAULT_GEOCODE_PARAMS}"
+    geocode_response = requests.get(geocode_url)
+    geocode_data = geocode_response.json()[0]
+    lat = geocode_data["lat"]
+    lon = geocode_data["lon"]
+    geo_country = geocode_data["country"]
+    geo_state = geocode_data["state"]
+    geo_city = geocode_data["name"]
+    return GeoCode(
         lat,
         lon,
         geo_city,
         geo_state,
         geo_country,
-    )  # apparently a tuple automatically??
+    )
 
 
 # Use lat lon to obtain Current Weather
-def get_weather(lat, lon):
-    # Contruct latitude and longtitude payload
-    lat_long_payload = f"?lat={lat}&lon={lon}"
-
-    # Final API URL construction
-    weather_api_url = f"{base_weather_url}{lat_long_payload}{default_weather_params}"
-    # print(weather_api_url)
-
-    # Call API
+def get_weather(geocode: GeoCode):
+    lat_long_payload = f"?lat={geocode.lat}&lon={geocode.lon}"
+    weather_api_url = f"{BASE_WEATHER_URL}{lat_long_payload}{DEFAULT_WEATHER_PARAMS}"
     weather_response = requests.get(weather_api_url)
-    # print(response.text)
-
-    # Convert API JSON Response to Python Dictionary Object
-    weather_data = json.loads(weather_response.text)
-
-    # Variable value extraction
-    # city = weather_data["name"] (use from geo api)
+    weather_data = weather_response.json()
     temp = weather_data["main"]["temp"]
     condition = weather_data["weather"][0]["description"]
-
-    # Final Response to User (move outside)
-    # print(f"The temperature in {city} is {temp} F with {condition}.")
     return temp, condition
 
 
-# User Interface
-print("Hi there!!\n")
-# Ask the user for location information
-print(
-    "Welcome to OpenWeatherPy. Plese enter the following location information. Only City is required. Just press <Enter> if you do not have the information:"
-)
-city = input("City: ")
-state_code = input("State Code, only applicable to the USA: ")
-country_code = input("Country Code (2 letters): ")
-location_payload = f"{city},{state_code},{country_code}"
-# print(location_payload)
-lat, lon, geo_city, geo_state, geo_country = get_geocode(location_payload)
-temp, condition = get_weather(lat, lon)
-print(f"The temperature in {geo_city}, {geo_state} is {temp} F with {condition}.")
-
-
-# Questions for russle, should I construct the location payload inside or outside the get weather function? assign lat long inside or outside?
+if __name__ == "__main__":
+    print("Hi there!!\n")
+    print(
+        "Welcome to OpenWeatherPy. Plese enter the following location information. Only City is required. Just press <Enter> if you do not have the information:"
+    )
+    location_payload = get_location()
+    geocode = get_geocode(location_payload)
+    temp, condition = get_weather(geocode)
+    print(
+        f"The temperature in {geocode.city}, {geocode.state} is {temp} F with {condition}."
+    )
