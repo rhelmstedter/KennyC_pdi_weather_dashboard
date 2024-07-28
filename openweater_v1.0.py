@@ -32,15 +32,15 @@ def get_geocode(location_payload):
     geocode_data = geocode_response.json()[0]
     lat = geocode_data["lat"]
     lon = geocode_data["lon"]
-    geo_country = geocode_data["country"]
-    geo_state = geocode_data["state"]
-    geo_city = geocode_data["name"]
+    country = geocode_data["country"]
+    state = geocode_data["state"]
+    city = geocode_data["name"]
     return GeoCode(
         lat,
         lon,
-        geo_city,
-        geo_state,
-        geo_country,
+        city,
+        state,
+        country,
     )
 
 
